@@ -6,23 +6,6 @@ from langchain_core.messages import HumanMessage
 from recipes.graph_builder import build_graph
 from recipes.schema import RecipeState
 
-"""
-1.
-Tu es mon chef assistant connecté. Commence par chercher sur le web 3 idées de salades d’été originales et fraîches adaptées aux fortes chaleurs, en tenant compte des tendances récentes. Ensuite, compare ces idées avec les recettes de salades déjà présentes dans ta base locale et dans mes PDFs de recettes, et sélectionne la combinaison la plus cohérente pour un repas du soir pour 6 personnes. Optimise la préparation pour réduire au maximum le temps actif en cuisine (batch cooking des étapes communes : découpe, cuisson, sauces). Termine en générant un tableau de synthèse des ingrédients nécessaires avec colonnes : ingrédient, quantité totale pour 6 personnes, catégorie (légume, fromage, céréale, assaisonnement, autre).
-
-2.
-Je veux préparer ce week‑end un grand batch de sauces tomate/bolognaise pour remplir mon congélateur. Commence par chercher dans mes livres de cuisine PDF toutes les recettes pertinentes de sauce bolognaise ou ragoût de viande pour pâtes, puis complète avec tes recettes locales si nécessaire. Compare les variantes (temps de cuisson, type de viande, proportion de légumes) et propose un plan unifié pour préparer environ 10 portions, en optimisant les étapes communes (préparation des légumes, marquage de la viande, mijotage). Liste ensuite tous les ustensiles nécessaires (type de casserole, cocotte, robot, passoire, boîtes de conservation) et indique lesquels sont strictement indispensables et lesquels sont optionnels. Termine par une liste de courses consolidée et dédoublonnée, groupée par rayon de supermarché.
-
-3. Menu complet saisons + multi‑RAG + nutrition
-Planifie un menu complet de saison pour un dîner de 4 personnes comprenant : une entrée froide, un plat principal et un dessert léger. Commence par analyser ma demande pour identifier la saison, les contraintes de temps (je n’ai que 1h30 au total), le matériel classique d’une cuisine domestique et l’absence d’allergies majeures. Utilise d’abord tes recettes locales pour proposer des idées, puis va chercher dans mes PDFs de cuisine des variantes plus techniques ou créatives, et enfin complète avec une recherche web uniquement si tu as besoin d’inspiration pour le dessert. Pour chaque recette choisie (entrée, plat, dessert), fournis un résumé, le temps total, les ustensiles clés et une estimation nutritionnelle très simple (calories approximatives et équilibre glucides/protéines/lipides). Termine par un plan de batch cooking qui ordonne toutes les étapes pour que les trois recettes soient prêtes dans les temps.
-
-4.  Adapte mes restes + RAG multi‑source + optimisation
-
-J’ai dans mon frigo : du quinoa cuit, des tomates cerises, un demi concombre, de la feta, des œufs et des herbes fraîches (basilic et persil). Analyse d’abord cette situation et identifie le type de repas le plus adapté (salade repas, bowl, etc.) pour 2 personnes ce soir, avec un maximum de réutilisation des restes. Utilise ton RAG sur mes recettes locales et mes livres PDF pour trouver des idées de recettes qui se rapprochent de ces ingrédients, puis propose 2 variantes : une version rapide “minimal vaisselle” et une version un peu plus élaborée. Pour chaque variante, donne la liste exacte des ustensiles nécessaires, les étapes détaillées ordonnées pour minimiser les changements d’ustensiles et les déplacements dans la cuisine, et une liste d’achats complémentaire si certains ingrédients simples manquent (avec quantités).
-
-"""
-
-
 
 # ---------- UI UTILS ----------
 def _inject_kitchen_style():
@@ -86,58 +69,41 @@ def run_graph_stream(query: str) -> RecipeState:
 
     final_state: RecipeState = state
 
-    # ---------- LAYOUT HAUT ----------
     col_status, col_meta = st.columns([3, 2])
     with col_status:
         placeholder_status = st.empty()
     with col_meta:
-        st.caption(
-            "👩‍🍳 Ton compagnon s’occupe de tout : "
-            "choix des recettes, plan de cuisson, liste de courses et ustensiles."
-        )
+        st.caption("👩‍🍳 Ton compagnon s’occupe de tout : choix des recettes, plan de cuisson, liste de courses et ustensiles.")
 
-    # ---------- TABS ----------
     tab_recette, tab_etapes, tab_courses, tab_logs = st.tabs(
-        [
-            "🍽️ Recette & plan",
-            "🥣 Étapes détaillées",
-            "🛒 Courses & ustensiles",
-            "🔍 Logs",
-        ]
+        ["🍽️ Recette & plan", "🥣 Étapes détaillées", "🛒 Courses & ustensiles", "🔍 Logs"]
     )
 
     with tab_recette:
         placeholder_summary = st.empty()
         placeholder_plan = st.empty()
         placeholder_sources = st.empty()
-        placeholder_rag_titles = st.empty()
-        placeholder_web = st.empty()
-
     with tab_etapes:
         placeholder_steps = st.empty()
-
     with tab_courses:
         placeholder_shopping = st.empty()
         placeholder_ust = st.empty()
-
     with tab_logs:
         placeholder_log = st.expander("Voir les logs techniques", expanded=False)
 
-    # ---------- STATUS INIT ----------
     with placeholder_status.container():
         st.info("Le chef réfléchit à la meilleure stratégie pour ton repas...")
 
-    # ---------- STREAM DU GRAPH ----------
     for chunk in graph.stream(state, config=config, stream_mode="updates"):
         for node, update in chunk.items():
-            # Logs bruts
+            # Logs détaillés
             with placeholder_log:
                 st.write(f"**Node exécuté :** `{node}`")
                 st.json(update)
 
             final_state.update(update)
-
-            # ---------- RETRIEVED_DOCS (RAG + WEB) ----------
+            
+                        # ---------- SOURCES RAG (PDFs / autres) ----------
             if "retrieved_docs" in update:
                 docs = update["retrieved_docs"] or []
 
@@ -149,71 +115,25 @@ def run_graph_stream(query: str) -> RecipeState:
                     )
 
                 pdf_filenames = set()
-                rag_titles: list[str] = []
-                web_results: list[dict] = []
-
                 for d in docs:
+                    # d est un dict {id, source, content, metadata}
                     if not isinstance(d, dict):
                         continue
                     meta = d.get("metadata", {}) or {}
-
-                    # titres de recettes (LOCAL_RECIPES + COOKBOOKS)
-                    title = meta.get("title")
-                    if title:
-                        rag_titles.append(title)
-
-                    # sources PDF cookbook
                     if (
                         meta.get("source") == "cookbook_pdf"
                         and meta.get("filename")
                     ):
                         pdf_filenames.add(meta["filename"])
 
-                    # résultats Tavily (web)
-                    if d.get("source") == "web":
-                        raw = meta.get("raw", {})
-                        if isinstance(raw, list):
-                            web_results.extend(raw)
-                        elif isinstance(raw, dict):
-                            web_results.extend(raw.get("results", []) or [])
-
-                # titres RAG
-                if rag_titles:
-                    with placeholder_rag_titles:
-                        st.markdown("#### 📖 Recettes RAG retrouvées")
-                        for t in rag_titles:
-                            st.markdown(f"- {t}")
-
-                # PDFs cookbook
                 if pdf_filenames:
                     with placeholder_sources:
                         st.markdown("#### 📚 Recettes inspirées de")
                         for fname in sorted(pdf_filenames):
                             st.markdown(f"- `{fname}`")
 
-                # résultats web Tavily
-                if web_results:
-                    with placeholder_web:
-                        st.markdown("#### 🌐 Résultats web (Tavily)")
-                        for r in web_results[:3]:
-                            title = r.get("title") or "Résultat web"
-                            url = r.get("url") or ""
-                            snippet = (
-                                r.get("content")
-                                or r.get("snippet")
-                                or ""
-                            )
-                            st.markdown(f"**{title}**")
-                            if url:
-                                st.markdown(f"[Voir la source]({url})")
-                            if snippet:
-                                short = snippet[:300]
-                                if len(snippet) > 300:
-                                    short += "…"
-                                st.caption(short)
-                            st.markdown("---")
 
-            # ---------- RECETTES CANDIDATES ----------
+            # ----- Recettes candidates & résumé -----
             if "candidate_recipes" in update:
                 with placeholder_summary:
                     st.subheader("🥗 Propositions de recettes")
@@ -234,7 +154,7 @@ def run_graph_stream(query: str) -> RecipeState:
                         with col_r:
                             st.metric("Nbr pers.", c.get("servings", "–"))
 
-            # ---------- PLAN BATCH COOKING ----------
+            # ----- Batch cooking plan -----
             if "batch_plan" in update:
                 with placeholder_plan:
                     st.subheader("🧩 Plan de batch cooking")
@@ -244,7 +164,7 @@ def run_graph_stream(query: str) -> RecipeState:
                     for c in update["batch_plan"]:
                         st.markdown(f"- **{c.get('title', 'Recette')}**")
 
-            # ---------- ÉTAPES ----------
+            # ----- Étapes de cuisson -----
             if "cooking_steps" in update:
                 with placeholder_steps:
                     st.subheader("🔥 Étapes de cuisson")
@@ -260,20 +180,12 @@ def run_graph_stream(query: str) -> RecipeState:
                                 unsafe_allow_html=True,
                             )
 
-            # ---------- COURSES ----------
+            # ----- Liste de courses -----
             if "shopping_list" in update:
                 with placeholder_shopping:
                     st.subheader("🛒 Liste de courses")
-                    ing = [
-                        i
-                        for i in update["shopping_list"]
-                        if not i.get("is_ustensil")
-                    ]
-                    ust = [
-                        i
-                        for i in update["shopping_list"]
-                        if i.get("is_ustensil")
-                    ]
+                    ing = [i for i in update["shopping_list"] if not i.get("is_ustensil")]
+                    ust = [i for i in update["shopping_list"] if i.get("is_ustensil")]
 
                     if ing:
                         st.markdown("**Ingrédients :**")
@@ -291,17 +203,15 @@ def run_graph_stream(query: str) -> RecipeState:
                             line += f'<span class="ust-pill">{label}</span>'
                         st.markdown(line, unsafe_allow_html=True)
 
-            # ---------- USTENSILES RECOMMANDÉS ----------
+            # ----- Ustensiles recommandés (avec liens) -----
             if "ustensils_needed" in update:
                 with placeholder_ust:
                     st.subheader("🔧 Ustensiles recommandés")
                     for u in update["ustensils_needed"]:
                         name = u.get("name") or "Ustensile"
                         kind = u.get("kind") or ""
-                        url = (
-                            u.get("suggestion_url")
-                            or u.get("metadata", {}).get("url")
-                        )
+                        url = (u.get("suggestion_url")
+                               or u.get("metadata", {}).get("url"))
                         base = f"**{name}**"
                         if kind:
                             base += f" – {kind}"
@@ -313,6 +223,7 @@ def run_graph_stream(query: str) -> RecipeState:
         st.success("Service terminé ✅ Bon appétit !")
 
     return final_state
+
 
 # ---------- MAIN APP ----------
 
@@ -330,7 +241,7 @@ def main():
         st.caption("Planifie ton repas, optimise ton temps et génère automatiquement la liste de courses.")
 
         default_query = (
-            "Rechercher sur le web une recette de  salade d'été, puis regardes les recettes de salades que j'ai deja et optimise la préparation pour 6 personnes ce soir "
+            "Je veux préparer des pâtes bolognaises pour 3 personnes avec des tomates"
         )
         query = st.text_area(
             "Décris ta situation (ingrédients, personnes, temps, contraintes alimentaires)",

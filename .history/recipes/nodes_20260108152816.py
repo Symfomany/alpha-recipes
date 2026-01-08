@@ -86,19 +86,14 @@ def classify_rag_node(state: RecipeState) -> RecipeState:
         HumanMessage(
             content=(
                 "Tu es un routeur RAG spécialisé en cuisine.\n"
-                "Ton rôle est de choisir UNE source principale d'information.\n\n"
-                "Règles de décision :\n"
-                "- Si la question peut être répondue avec des recettes génériques "
-                "sans dépendre de ma base locale → NO_RAG.\n"
-                "- Si la question concerne des recettes que l'on trouve dans mon "
-                "catalogue interne (salades, plats maison, etc.) → LOCAL_RECIPES.\n"
-                "- Si la question mentionne un livre, un PDF, un livret de recettes "
-                "ou une recette précise que j'ai en PDF → COOKBOOKS.\n"
-                "- Si la question demande des tendances récentes, des avis en ligne, "
-                "des informations actuelles ou des ingrédients très rares → WEB.\n\n"
-                "Réponds STRICTEMENT par l'un de ces tokens, en MAJUSCULES, "
-                "sans explication, sans ponctuation supplémentaire :\n"
-                "NO_RAG, LOCAL_RECIPES, COOKBOOKS, WEB.\n\n"
+                "Tu dois décider de la meilleure source principale pour répondre "
+                "à la question suivante.\n\n"
+                "Choisis exactement UN token parmi :\n"
+                "- NO_RAG      : répondre uniquement avec tes connaissances générales\n"
+                "- LOCAL_RECIPES : recettes locales (base de recettes classiques)\n"
+                "- COOKBOOKS   : livres de cuisine / PDF (recettes détaillées)\n"
+                "- WEB         : recherche web (Tavily) pour informations récentes\n\n"
+                "Réponds UNIQUEMENT par l’un de ces tokens (sans explication).\n\n"
                 f"Question utilisateur : {query}"
             )
         )
@@ -106,11 +101,9 @@ def classify_rag_node(state: RecipeState) -> RecipeState:
     strategy_text = _llm_chat(messages).strip().upper()
     valid: List[RagStrategy] = ["NO_RAG", "LOCAL_RECIPES", "COOKBOOKS", "WEB"]  # type: ignore
     # Fallback raisonnable si le LLM sort autre chose
-    if strategy_text not in valid:
-        rprint("[red]Strategy non valide, fallback sur LOCAL_RECIPES[/red]")
-        strategy: RagStrategy = "LOCAL_RECIPES"  # type: ignore
-    else:
-        strategy = strategy_text  # type: ignore
+    strategy: RagStrategy = (
+        strategy_text if strategy_text in valid else "LOCAL_RECIPES"  # type: ignore
+    )
     _log_node("strategy chosen: " + strategy)
     state["rag_strategy"] = strategy
     return state
@@ -176,25 +169,17 @@ def retrieve_web_node(state: RecipeState) -> RecipeState:
     _log_node("RETRIEVE_WEB")
     query = state.get("query") or ""
 
-    # Tavily renvoie une structure JSON (souvent une liste de résultats)
+    # ici, web_search est un tool mais on peut l'utiliser comme simple wrapper HTTP
     result = tools.web_search.invoke({"query": query})
 
-    # On garde la structure brute + un résumé texte pour l'agent
     docs: list[RetrievedDoc] = [
         {
             "id": "tavily-0",
             "source": "web",
-            "content": str(result),      # contexte textuel pour l'agent
-            "metadata": {"raw": result},  # JSON complet
+            "content": str(result),
+            "metadata": {},
         }
     ]
-    rprint("[bold magenta]Web search results (Tavily):[/bold magenta]")
-    for r in result.get("results", []):
-        rprint(
-            "- [blue]" + r.get("title", "No title") + "[/blue] "
-            + "(" + r.get("url", "No URL") + ")"
-        )
-        
     rprint(f"[bold magenta]RETRIEVE_WEB[/bold magenta] -> 1 doc (Tavily)")
     return {"retrieved_docs": docs}
 

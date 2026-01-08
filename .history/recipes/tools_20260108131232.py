@@ -15,7 +15,6 @@ from langchain_core.tools import tool
 from langchain_core.documents import Document
 
 from .config import RECIPES_VS, COOKBOOKS_VS, USTENSILS_VS, TAVILY_TOOL
-from rich import print as rprint
 
 
 # --- retrievers basés sur Chroma ---
@@ -25,7 +24,6 @@ from rich import print as rprint
 def recipes_retriever(query: str, k: int = 5) -> List[Dict[str, Any]]:
     """Recherche des recettes (vector store local) pertinentes pour la requête."""
     docs: List[Document] = RECIPES_VS.similarity_search(query, k=k)
-    rprint(f"[recipes/tools] recipes_retriever: found {len(docs)} docs for query '{query}'")
     return [
         {
             "id": d.metadata.get("id", d.page_content[:50]),
@@ -73,6 +71,8 @@ def ustensils_retriever(task: str, k: int = 5) -> List[Dict[str, Any]]:
 
 
 # --- Tavily (web search) ---
+
+
 @tool("web_search", return_direct=False)
 def web_search(query: str) -> Any:
     """Recherche web via Tavily pour compléter le RAG (ingrédients rares, tendances…)."""

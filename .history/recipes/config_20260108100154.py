@@ -83,7 +83,7 @@ def get_vectorstores() -> Tuple[Chroma, Chroma, Chroma]:
     embeddings = get_embeddings()
 
     recipes_vs = Chroma(
-        collection_name="pdfs",
+        collection_name="recipes",
         embedding_function=embeddings,
         persist_directory=str(CHROMA_DIR / "recipes"),
     )

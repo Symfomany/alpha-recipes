@@ -21,16 +21,9 @@ from .schema import (
     ShoppingItem,
 )
 from . import tools
-from rich import print as rprint
-from .config import RECIPES_VS, COOKBOOKS_VS
-from .schema import RecipeState, RetrievedDoc
 
 
 # --- helpers LLM ---
-
-
-def _log_node(name: str) -> None:
-    rprint(f"[bold magenta]→ NODE[/bold magenta] [cyan]{name}[/cyan]")
 
 
 def _llm_chat(messages: List[Any]) -> str:
@@ -49,7 +42,6 @@ def analyze_request_node(state: RecipeState) -> RecipeState:
     Normalise la demande utilisateur : personnes, temps, régime, matériel, etc.
     Prompt simple pour extraire les méta-infos.
     """
-    _log_node("ANALYZE_REQUEST")
     query = state.get("query") or ""
     messages = [
         HumanMessage(
@@ -73,136 +65,62 @@ def analyze_request_node(state: RecipeState) -> RecipeState:
 
 # --- CLASSIFY_RAG (Adaptive RAG) ---
 
-# LOCAL_RECIPES → vector store recettes
-# COOKBOOKS → vector store PDFs / livres de cuisine
-# WEB → Tavily (recherche web)
+
 def classify_rag_node(state: RecipeState) -> RecipeState:
     """
     Choisit la stratégie RAG : NO_RAG / LOCAL_RECIPES / COOKBOOKS / WEB.
     """
-    _log_node("CLASSIFY_RAG")
     query = state.get("query") or ""
     messages = [
         HumanMessage(
             content=(
-                "Tu es un routeur RAG spécialisé en cuisine.\n"
-                "Ton rôle est de choisir UNE source principale d'information.\n\n"
-                "Règles de décision :\n"
-                "- Si la question peut être répondue avec des recettes génériques "
-                "sans dépendre de ma base locale → NO_RAG.\n"
-                "- Si la question concerne des recettes que l'on trouve dans mon "
-                "catalogue interne (salades, plats maison, etc.) → LOCAL_RECIPES.\n"
-                "- Si la question mentionne un livre, un PDF, un livret de recettes "
-                "ou une recette précise que j'ai en PDF → COOKBOOKS.\n"
-                "- Si la question demande des tendances récentes, des avis en ligne, "
-                "des informations actuelles ou des ingrédients très rares → WEB.\n\n"
-                "Réponds STRICTEMENT par l'un de ces tokens, en MAJUSCULES, "
-                "sans explication, sans ponctuation supplémentaire :\n"
-                "NO_RAG, LOCAL_RECIPES, COOKBOOKS, WEB.\n\n"
-                f"Question utilisateur : {query}"
+                "Tu dois décider de la meilleure stratégie de récupération d'informations "
+                "pour répondre à une question de cuisine.\n"
+                "Réponds uniquement par un token parmi: NO_RAG, LOCAL_RECIPES, "
+                "COOKBOOKS, WEB.\n\n"
+                f"Question: {query}"
             )
         )
     ]
     strategy_text = _llm_chat(messages).strip().upper()
     valid: List[RagStrategy] = ["NO_RAG", "LOCAL_RECIPES", "COOKBOOKS", "WEB"]  # type: ignore
-    # Fallback raisonnable si le LLM sort autre chose
-    if strategy_text not in valid:
-        rprint("[red]Strategy non valide, fallback sur LOCAL_RECIPES[/red]")
-        strategy: RagStrategy = "LOCAL_RECIPES"  # type: ignore
-    else:
-        strategy = strategy_text  # type: ignore
-    _log_node("strategy chosen: " + strategy)
+    strategy: RagStrategy = strategy_text if strategy_text in valid else "LOCAL_RECIPES"  # type: ignore
     state["rag_strategy"] = strategy
     return state
 
 
 # --- RETRIEVE_* ---
+
 def retrieve_recipes_node(state: RecipeState) -> RecipeState:
-    _log_node("RETRIEVE_RECIPES")
     query = state.get("query") or ""
-
-    # RAG sur le vecteur store LOCAL_RECIPES
-    docs_raw: list[Document] = RECIPES_VS.similarity_search(query, k=5)
-    docs: list[RetrievedDoc] = [
-        {
-            "id": d.metadata.get("id", d.page_content[:50]),
-            "source": "recipes",
-            "content": d.page_content,
-            "metadata": d.metadata,
-        }
-        for d in docs_raw
-    ]
-
-    rprint(f"[bold magenta]RETRIEVE_RECIPES[/bold magenta] -> {len(docs)} docs")
-    for d in docs[:3]:
-        meta = d.get("metadata") or {}
-        rprint(
-            "[recipes] id=", d.get("id"),
-            " | source=", d.get("source"),
-            " | file=", meta.get("filename"),
-            " | title=", meta.get("title"),
-        )
+    docs: List[RetrievedDoc] = tools.recipes_retriever.invoke({"query": query})
     return {"retrieved_docs": docs}
 
 
 def retrieve_cookbooks_node(state: RecipeState) -> RecipeState:
-    _log_node("RETRIEVE_COOKBOOKS")
     query = state.get("query") or ""
-
-    docs_raw: list[Document] = COOKBOOKS_VS.similarity_search(query, k=5)
-    docs: list[RetrievedDoc] = [
-        {
-            "id": d.metadata.get("id", d.page_content[:50]),
-            "source": "cookbook_pdf",
-            "content": d.page_content,
-            "metadata": d.metadata,
-        }
-        for d in docs_raw
-    ]
-
-    rprint(f"[bold magenta]RETRIEVE_COOKBOOKS[/bold magenta] -> {len(docs)} docs")
-    for d in docs[:3]:
-        meta = d.get("metadata") or {}
-        rprint(
-            "[cookbooks] id=", d.get("id"),
-            " | file=", meta.get("filename"),
-            " | page=", meta.get("page"),
-            " | category=", meta.get("category"),
-        )
+    docs: List[RetrievedDoc] = tools.cookbooks_retriever.invoke({"query": query})
     return {"retrieved_docs": docs}
 
 
 def retrieve_web_node(state: RecipeState) -> RecipeState:
-    _log_node("RETRIEVE_WEB")
     query = state.get("query") or ""
-
-    # Tavily renvoie une structure JSON (souvent une liste de résultats)
     result = tools.web_search.invoke({"query": query})
 
-    # On garde la structure brute + un résumé texte pour l'agent
-    docs: list[RetrievedDoc] = [
+    docs: List[RetrievedDoc] = [
         {
             "id": "tavily-0",
             "source": "web",
-            "content": str(result),      # contexte textuel pour l'agent
-            "metadata": {"raw": result},  # JSON complet
+            "content": str(result),
+            "metadata": {},
         }
     ]
-    rprint("[bold magenta]Web search results (Tavily):[/bold magenta]")
-    for r in result.get("results", []):
-        rprint(
-            "- [blue]" + r.get("title", "No title") + "[/blue] "
-            + "(" + r.get("url", "No URL") + ")"
-        )
-        
-    rprint(f"[bold magenta]RETRIEVE_WEB[/bold magenta] -> 1 doc (Tavily)")
     return {"retrieved_docs": docs}
 
 
 # --- GRADE_RETRIEVAL (Corrective RAG) ---
 
 def grade_retrieval_node(state: RecipeState) -> RecipeState:
-    _log_node("GRADE_RETRIEVAL")
     query = state.get("query") or ""
     docs = state.get("retrieved_docs", [])
     text_docs = "\n\n".join(d.get("content", "") for d in docs)[:4000]
@@ -261,10 +179,9 @@ def clarify_user_node(state: RecipeState) -> RecipeState:
         )
     ]
     question = _llm_chat(messages).strip()
-    return {
-        "clarification_question": question,
-        "clarification_needed": True,
-    }
+    state["clarification_question"] = question
+    state["clarification_needed"] = True
+    return state
 
 
 # --- AGENT_NODE (Agentic RAG simplifié) ---
@@ -275,9 +192,7 @@ def agent_node(state: RecipeState) -> RecipeState:
     Agent qui combine les docs RAG + connaissances LLM
     pour proposer 1..N recettes candidates.
     """
-    _log_node("AGENT")
     query = state.get("query") or ""
-    # _log_node("Query" + query)
     docs = state.get("retrieved_docs", [])
     context = "\n\n".join(d.get("content", "") for d in docs)[:6000]
 
@@ -305,8 +220,8 @@ def agent_node(state: RecipeState) -> RecipeState:
         "source": "llm",
         "url": None,
     }
-
-    return {"candidate_recipes": [candidate]}
+    state["candidate_recipes"] = [candidate]
+    return state
 
 
 # --- USTENSILS_NODE ---

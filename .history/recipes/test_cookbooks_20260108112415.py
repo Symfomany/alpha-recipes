@@ -15,7 +15,7 @@ def doc_length_tokens(text: str) -> int:
 
 
 def main() -> None:
-    query = "Pâtes Carbonara"
+    query = "Je veux faire Porridge à la cannelle pour 4 personnes ."
     rprint(
         Panel.fit(
             f"[bold cyan]Test cookbooks RAG[/bold cyan]\n[white]{query}[/white]"
