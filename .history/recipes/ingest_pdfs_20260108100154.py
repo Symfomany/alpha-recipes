@@ -11,25 +11,31 @@ from rich.table import Table
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from config import COOKBOOKS_VS, BASE_DIR  # adapté à ton chemin actuel
 
 
 PDF_DIR = BASE_DIR / "pdfs"
-MIN_TOKENS = 50  # on ignore les pages trop courtes (page de garde, pub, etc.)
+
+# splitter pour découper chaque page en chunks RAG
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=800,
+    chunk_overlap=100,
+    separators=["\n\n", "\n", ".", "!", "?", " "],
+)
 
 
 def infer_category_and_title(stem: str) -> Tuple[str, str]:
+    """
+    Déduit une catégorie et un titre humain à partir du nom du fichier PDF.
+    """
     s = stem.lower()
     if "noel" in s or "noël" in s:
         return "noel", "Recettes magiques de Noël"
     if "italien" in s or "pates" in s or "pâtes" in s or "pasta" in s:
         return "italien", "Recettes italiennes (pâtes, bolo, etc.)"
     return "autre", stem.replace("_", " ").title()
-
-
-def _token_len(text: str) -> int:
-    return len((text or "").split())
 
 
 def ingest_cookbook_pdfs() -> None:
@@ -56,7 +62,7 @@ def ingest_cookbook_pdfs() -> None:
 
     all_docs: List[Document] = []
     total_pages = 0
-    total_kept = 0
+    total_chunks = 0
 
     for path in pdf_files:
         category, title = infer_category_and_title(path.stem)
@@ -64,51 +70,47 @@ def ingest_cookbook_pdfs() -> None:
         rprint(Panel.fit(f"[bold green]Chargement[/bold green] {path.name}"))
         loader = PyPDFLoader(str(path))
 
-        # 1) on charge les pages (1 Document par page)
-        pages = loader.load()
+        # 1) on charge les pages
+        pages = loader.load()  # 1 Document par page
         nb_pages = len(pages)
         total_pages += nb_pages
 
-        kept_for_file = 0
-        docs_for_file: List[Document] = []
-
-        for page_idx, page in enumerate(pages, start=1):
-            text = page.page_content or ""
-            if _token_len(text) < MIN_TOKENS:
-                # On ignore les pages trop courtes
-                continue
-
-            page.metadata = page.metadata or {}
-            page.metadata.update(
-                {
-                    "id": path.stem,            # ex: recettes_italien
-                    "filename": path.name,      # ex: recettes_italien.pdf
-                    "source": "cookbook_pdf",
-                    "category": category,       # "noel" / "italien" / "autre"
-                    "book_title": title,
-                    "page": page_idx,
-                    "page_label": page.metadata.get("page_label", str(page_idx)),
-                    "chunk_index": page_idx,    # 1 chunk = 1 page
-                    "total_pages": nb_pages,
-                }
-            )
-            docs_for_file.append(page)
-            kept_for_file += 1
-
-        total_kept += kept_for_file
-        all_docs.extend(docs_for_file)
+        # 2) on les découpe en chunks RAG
+        docs = text_splitter.split_documents(pages)
+        nb_chunks = len(docs)
+        total_chunks += nb_chunks
 
         rprint(
             f"  → [cyan]{nb_pages} pages[/cyan], "
-            f"[green]{kept_for_file} pages retenues >= {MIN_TOKENS} tokens[/green] "
-            f"pour [bold]{title}[/bold] (catégorie: {category})"
+            f"[magenta]{nb_chunks} chunks[/magenta] pour "
+            f"[bold]{title}[/bold] (catégorie: {category})"
+        )
+
+        # Ajout des métadatas + debug
+        for i, d in enumerate(docs, start=1):
+            d.metadata = d.metadata or {}
+            d.metadata.update(
+                {
+                    "id": path.stem,          # ex: recettes_magiques_noel
+                    "filename": path.name,    # ex: recettes_magiques_noel.pdf
+                    "source": "cookbook_pdf",
+                    "category": category,     # "noel" / "italien" / "autre"
+                    "book_title": title,
+                    "chunk_index": i,
+                }
+            )
+        all_docs.extend(docs)
+
+        rprint(
+            f"  → [green]{nb_chunks} chunks[/green] ajoutés au buffer "
+            f"(total buffer: {len(all_docs)})"
         )
 
     rprint(
         Panel.fit(
             f"[cyan]Insertion dans Chroma[/cyan] "
-            f"({len(all_docs)} documents/pages, {total_pages} pages au total, "
-            f"{total_kept} pages gardées après filtre longueur ≥ {MIN_TOKENS})"
+            f"({len(all_docs)} documents/chunks, {total_pages} pages au total, "
+            f"{total_chunks} chunks cumulés)"
         )
     )
     COOKBOOKS_VS.add_documents(all_docs)

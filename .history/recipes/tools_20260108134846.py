@@ -73,6 +73,8 @@ def ustensils_retriever(task: str, k: int = 5) -> List[Dict[str, Any]]:
 
 
 # --- Tavily (web search) ---
+
+
 @tool("web_search", return_direct=False)
 def web_search(query: str) -> Any:
     """Recherche web via Tavily pour compléter le RAG (ingrédients rares, tendances…)."""

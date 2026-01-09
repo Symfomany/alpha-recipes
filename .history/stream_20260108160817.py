@@ -7,18 +7,7 @@ from recipes.graph_builder import build_graph
 from recipes.schema import RecipeState
 
 """
-1.
 Tu es mon chef assistant connecté. Commence par chercher sur le web 3 idées de salades d’été originales et fraîches adaptées aux fortes chaleurs, en tenant compte des tendances récentes. Ensuite, compare ces idées avec les recettes de salades déjà présentes dans ta base locale et dans mes PDFs de recettes, et sélectionne la combinaison la plus cohérente pour un repas du soir pour 6 personnes. Optimise la préparation pour réduire au maximum le temps actif en cuisine (batch cooking des étapes communes : découpe, cuisson, sauces). Termine en générant un tableau de synthèse des ingrédients nécessaires avec colonnes : ingrédient, quantité totale pour 6 personnes, catégorie (légume, fromage, céréale, assaisonnement, autre).
-
-2.
-Je veux préparer ce week‑end un grand batch de sauces tomate/bolognaise pour remplir mon congélateur. Commence par chercher dans mes livres de cuisine PDF toutes les recettes pertinentes de sauce bolognaise ou ragoût de viande pour pâtes, puis complète avec tes recettes locales si nécessaire. Compare les variantes (temps de cuisson, type de viande, proportion de légumes) et propose un plan unifié pour préparer environ 10 portions, en optimisant les étapes communes (préparation des légumes, marquage de la viande, mijotage). Liste ensuite tous les ustensiles nécessaires (type de casserole, cocotte, robot, passoire, boîtes de conservation) et indique lesquels sont strictement indispensables et lesquels sont optionnels. Termine par une liste de courses consolidée et dédoublonnée, groupée par rayon de supermarché.
-
-3. Menu complet saisons + multi‑RAG + nutrition
-Planifie un menu complet de saison pour un dîner de 4 personnes comprenant : une entrée froide, un plat principal et un dessert léger. Commence par analyser ma demande pour identifier la saison, les contraintes de temps (je n’ai que 1h30 au total), le matériel classique d’une cuisine domestique et l’absence d’allergies majeures. Utilise d’abord tes recettes locales pour proposer des idées, puis va chercher dans mes PDFs de cuisine des variantes plus techniques ou créatives, et enfin complète avec une recherche web uniquement si tu as besoin d’inspiration pour le dessert. Pour chaque recette choisie (entrée, plat, dessert), fournis un résumé, le temps total, les ustensiles clés et une estimation nutritionnelle très simple (calories approximatives et équilibre glucides/protéines/lipides). Termine par un plan de batch cooking qui ordonne toutes les étapes pour que les trois recettes soient prêtes dans les temps.
-
-4.  Adapte mes restes + RAG multi‑source + optimisation
-
-J’ai dans mon frigo : du quinoa cuit, des tomates cerises, un demi concombre, de la feta, des œufs et des herbes fraîches (basilic et persil). Analyse d’abord cette situation et identifie le type de repas le plus adapté (salade repas, bowl, etc.) pour 2 personnes ce soir, avec un maximum de réutilisation des restes. Utilise ton RAG sur mes recettes locales et mes livres PDF pour trouver des idées de recettes qui se rapprochent de ces ingrédients, puis propose 2 variantes : une version rapide “minimal vaisselle” et une version un peu plus élaborée. Pour chaque variante, donne la liste exacte des ustensiles nécessaires, les étapes détaillées ordonnées pour minimiser les changements d’ustensiles et les déplacements dans la cuisine, et une liste d’achats complémentaire si certains ingrédients simples manquent (avec quantités).
 
 """
 

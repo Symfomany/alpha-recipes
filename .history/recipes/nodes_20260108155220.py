@@ -188,13 +188,6 @@ def retrieve_web_node(state: RecipeState) -> RecipeState:
             "metadata": {"raw": result},  # JSON complet
         }
     ]
-    rprint("[bold magenta]Web search results (Tavily):[/bold magenta]")
-    for r in result.get("results", []):
-        rprint(
-            "- [blue]" + r.get("title", "No title") + "[/blue] "
-            + "(" + r.get("url", "No URL") + ")"
-        )
-        
     rprint(f"[bold magenta]RETRIEVE_WEB[/bold magenta] -> 1 doc (Tavily)")
     return {"retrieved_docs": docs}
 

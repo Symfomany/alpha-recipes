@@ -1,5 +1,5 @@
 """
-recipes/tools.py
+recipes/app/tools.py
 
 Définition des tools utilisés par l'Agentic RAG :
 - retrievers (recettes, cookbooks, ustensiles)
@@ -15,26 +15,17 @@ from langchain_core.tools import tool
 from langchain_core.documents import Document
 
 from .config import RECIPES_VS, COOKBOOKS_VS, USTENSILS_VS, TAVILY_TOOL
-from rich import print as rprint
 
 
 # --- retrievers basés sur Chroma ---
 
 
 @tool("recipes_retriever", return_direct=False)
-def recipes_retriever(query: str, k: int = 5) -> List[Dict[str, Any]]:
-    """Recherche des recettes (vector store local) pertinentes pour la requête."""
-    docs: List[Document] = RECIPES_VS.similarity_search(query, k=k)
-    rprint(f"[recipes/tools] recipes_retriever: found {len(docs)} docs for query '{query}'")
-    return [
-        {
-            "id": d.metadata.get("id", d.page_content[:50]),
-            "source": "recipes",
-            "content": d.page_content,
-            "metadata": d.metadata,
-        }
-        for d in docs
-    ]
+def retrieve_recipes_node(state: RecipeState) -> RecipeState:
+    query = state.get("query") or ""
+    docs = tools.recipes_retriever.invoke({"query": query})  # tool => dict input
+    # docs est déjà une List[RetrievedDoc]-like (liste de dicts)
+    return {"retrieved_docs": docs}
 
 
 @tool("cookbooks_retriever", return_direct=False)
@@ -44,7 +35,7 @@ def cookbooks_retriever(query: str, k: int = 5) -> List[Dict[str, Any]]:
     return [
         {
             "id": d.metadata.get("id", d.page_content[:50]),
-            "source": "cookbook_pdf",
+            "source": "cookbooks",
             "content": d.page_content,
             "metadata": d.metadata,
         }
@@ -73,6 +64,8 @@ def ustensils_retriever(task: str, k: int = 5) -> List[Dict[str, Any]]:
 
 
 # --- Tavily (web search) ---
+
+
 @tool("web_search", return_direct=False)
 def web_search(query: str) -> Any:
     """Recherche web via Tavily pour compléter le RAG (ingrédients rares, tendances…)."""
