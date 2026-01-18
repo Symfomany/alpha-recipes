@@ -167,15 +167,17 @@ def build_graph():
     def _route_quality(state: RecipeState) -> str:
         return (state.get("retrieval_quality") or "GOOD").upper()
 
-    builder.add_conditional_edges(
-        GRADE_RETRIEVAL,
-        _route_quality,
-        {
-            "GOOD": AGENT,
-            "BAD": REWRITE_QUERY,
-            "AMBIGUOUS": CLARIFY_USER,
-        },
-    )
+    builder.add_edge(GRADE_RETRIEVAL, REWRITE_QUERY)
+
+    # builder.add_conditional_edges(
+    #     GRADE_RETRIEVAL,
+    #     _route_quality,
+    #     {
+    #         "GOOD": AGENT,
+    #         "BAD": REWRITE_QUERY,
+    #         "AMBIGUOUS": CLARIFY_USER,
+    #     },
+    # )
 
     # BAD -> réécriture puis reclassification
     builder.add_edge(REWRITE_QUERY, CLASSIFY_RAG)
