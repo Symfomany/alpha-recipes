@@ -22,7 +22,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 import aiosqlite  # type: ignore
 from langgraph.checkpoint.memory import MemorySaver
 
-from check import _log_cuda_status
+from .check import _log_cuda_status
 
 
 # --- chemins & .env ---
