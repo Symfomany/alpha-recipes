@@ -11,6 +11,8 @@ from rich.table import Table
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
+from langchain_community.document_loaders import PyMuPDFLoader
+
 
 from .config import COOKBOOKS_VS, BASE_DIR  # adapté à ton chemin actuel
 
