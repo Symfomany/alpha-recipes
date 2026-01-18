@@ -74,7 +74,7 @@ def get_embeddings() -> HuggingFaceEmbeddings:
     model_name = os.getenv(
         "EMBEDDINGS_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
     )
-    return HuggingFaceEmbeddings(model_name=model_name,  model_kwargs={"device": "cuda"}, )
+    return HuggingFaceEmbeddings(model_name=model_name,  model_kwargs={"device": "cpu"}, )
 
 
 def get_vectorstores() -> Tuple[Chroma, Chroma, Chroma]:
