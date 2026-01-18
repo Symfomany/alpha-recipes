@@ -12,7 +12,7 @@ from rich.table import Table
 
 from langchain_core.documents import Document
 
-from recipies.config import RECIPES_VS, BASE_DIR
+from recipes.config import RECIPES_VS, BASE_DIR
 
 
 CSV_PATH = BASE_DIR / "files" / "recipes_salades.csv"
