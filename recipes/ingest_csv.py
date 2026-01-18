@@ -15,7 +15,7 @@ from langchain_core.documents import Document
 from config import RECIPES_VS, BASE_DIR
 
 
-CSV_PATH = BASE_DIR / "data" / "recipes_salades.csv"
+CSV_PATH = BASE_DIR / "files" / "recipes_salades.csv"
 
 
 def ingest_salade_recipes() -> None:

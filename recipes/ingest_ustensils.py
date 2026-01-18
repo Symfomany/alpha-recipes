@@ -15,7 +15,7 @@ from langchain_core.documents import Document
 from config import USTENSILS_VS, BASE_DIR
 
 
-CSV_PATH = BASE_DIR / "data" / "ustensils.csv"
+CSV_PATH = BASE_DIR / "files" / "ustensils.csv"
 
 
 def ingest_ustensils() -> None:

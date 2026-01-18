@@ -22,6 +22,8 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 import aiosqlite  # type: ignore
 from langgraph.checkpoint.memory import MemorySaver
 
+from .check import _log_cuda_status
+
 
 # --- chemins & .env ---
 
@@ -36,6 +38,10 @@ CHROMA_DIR.mkdir(exist_ok=True)
 load_dotenv()
 
 
+
+    
+# appeler le check au chargement du module
+_log_cuda_status()
 
 # --- LLM principal : Mistral 3B local via Ollama ---
 
