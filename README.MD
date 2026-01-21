@@ -66,7 +66,7 @@ ollama = "^0.3.0"
 dotenv = "^1.0.0"
 ```
 
-### 2.3. Modèle LLM & env
+### 2.3. Modèle LLM & environments
 
 Installer le modèle Mistral 3B avec Ollama :[19]
 
@@ -119,7 +119,6 @@ recipes/
 ### 3.2. Rôle de chaque module
 
 - `config.py` :
-
   - Crée le LLM `Ollama(model="ministral-3:3b")`.
   - Initialise les embeddings `HuggingFaceEmbeddings`.
   - Ouvre les vector stores `recipes`, `cookbooks`, `ustensils` via `Chroma`.
@@ -127,16 +126,13 @@ recipes/
   - Exporte : `LLM`, `RECIPES_VS`, `COOKBOOKS_VS`, `USTENSILS_VS`, `TAVILY_TOOL`.
 
 - `schema.py` :
-
   - Définit `RecipeState` (TypedDict) avec : `query`, `normalized_request`, `rag_strategy`, `retrieved_docs`, `candidate_recipes`, `batch_plan`, `shopping_list`, `ustensils_needed`, etc.
   - Contient les constantes de nœuds (ANALYZE, CLASSIFY_RAG, RETRIEVE_RECIPES, GRADE_RETRIEVAL, AGENT, PLAN_BATCH, SHOPPING, STEPS, SAVE_STATE…).
 
 - `prompts.py` :
-
   - Regroupe les prompts : analyse de demande, classification RAG, grading, réécriture, clarification, agent recettes, batch cooking, génération d’étapes.
 
 - `tools.py` :
-
   - Tools LangChain :
     - `recipes_retriever` (Chroma recettes).
     - `cookbooks_retriever` (Chroma PDF).
@@ -145,7 +141,6 @@ recipes/
     - `nutrition_tool` (résumé nutrition simplifié).
 
 - `nodes.py` :
-
   - Nœuds du graphe :
     - `analyze_request_node` → normalisation / extraction contraintes.
     - `classify_rag_node` → choisit `rag_strategy` (NO_RAG / LOCAL_RECIPES / COOKBOOKS / WEB).
@@ -156,13 +151,11 @@ recipes/
     - `plan_batch_cooking_node`, `build_shopping_list_node`, `generate_steps_node`, `save_session_node`.
 
 - `graph_builder.py` :
-
   - Construit un `StateGraph(RecipeState)` avec tous les nœuds/edges.
   - `build_graph()` → version sync (sans checkpointer) pour CLI / Streamlit.
   - (optionnel) `build_graph_async()` → version async avec `MemorySaver` si tu veux utiliser `astream`.
 
 - `main.py` :
-
   - App CLI (non streaming) qui affiche : graph ASCII, étapes de cuisson, liste de courses, ustensiles suggérés, via `rich`.
 
 - `stream.py` :
